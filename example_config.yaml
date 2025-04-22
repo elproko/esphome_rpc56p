@@ -10,13 +10,12 @@ esp8266:
   board: esp12e
 
 external_components:
-#  - source:
-#      type: local
-#      path: custom_components
   - source:
       type: git
       url: https://github.com/elproko/esphome_rpc56p
       ref: main
+    components: [ rpc56p ]
+    refresh: 10s
 
 mdns:
   disabled: true
