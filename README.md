@@ -6,3 +6,5 @@ Please note DIRECTION pin is not put into component's configuration yet, its har
 
 Feel free to make a PR if you want to contribute e.g. adding DIR pin to the configuration or any other improvements.
 
+This repo is my journey's contunuation of reading sensors from RPC56p controller.
+You can see my former attempts: standalone Arduino version code and then ESPHome custom component in this old repo: https://github.com/elproko/hp-controller-RPC-56P
