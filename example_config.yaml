@@ -1,0 +1,113 @@
+substitutions:
+ name: rpc56p-sensor
+ 
+esphome:
+  name: ${name}
+  comment: Shows heatpump parameters via rs485
+  build_path: "../config/esphome/builds/${name}"
+
+esp8266:
+  board: esp12e
+
+external_components:
+#  - source:
+#      type: local
+#      path: custom_components
+  - source:
+      type: git
+      url: https://github.com/elproko/esphome_rpc56p
+      ref: main
+
+mdns:
+  disabled: true
+  
+uart:
+  id: uart_bus
+  tx_pin: TX
+  rx_pin: RX
+  baud_rate: 19200
+
+
+#modbus:
+#  uart_id: uart_bus
+#  flow_control_pin: GPIO4
+  
+status_led:
+  pin:
+    number: GPIO16
+    inverted: yes
+    
+logger:
+  id: component_logger
+  level: DEBUG
+#  level: VERY_VERBOSE
+#  level: VERBOSE #makes uart stream available in esphome logstream
+  baud_rate: 0 #disable logging over uart
+
+     
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret api_key
+    
+web_server: 
+  port: 80
+  
+button:
+  - platform: restart
+    id: rpc56p_button_restart
+    name: "${name} Restart"
+
+sensor:
+  - platform: rpc56p
+    id: rpc56p_sns
+    uart_id: uart_bus
+    update_interval: 10s
+    
+    in_temp_sensor:
+      id: room_temp
+      name: "RPC-56P room temperature"
+      unit_of_measurement: °C
+      device_class: "temperature"
+      state_class: "measurement"
+      accuracy_decimals: 1
+
+    out_temp_sensor:  
+      name: "RPC-56P outside temperature"
+      unit_of_measurement: °C
+      device_class: "temperature"
+      state_class: "measurement"
+      accuracy_decimals: 1
+      id: out_temp
+
+    top_temp_sensor:
+      name: "RPC-56P top source temperature"
+      unit_of_measurement: °C
+      device_class: "temperature"
+      state_class: "measurement"
+      accuracy_decimals: 1
+      id: top_temp
+
+    bottom_temp_sensor:
+      name: "RPC-56P bottom source temperature"
+      unit_of_measurement: °C
+      accuracy_decimals: 1
+      device_class: "temperature"
+      state_class: "measurement"
+      id: bottom_temp
+
+    water_temp_sensor:
+      name: "RPC-56P water temperature"
+      unit_of_measurement: °C
+      device_class: "temperature"
+      state_class: "measurement"
+      accuracy_decimals: 1
+      id: water_temp
+
+    alarms_sensor:
+      name: "RPC-56P alarms sensor"
+      id: alarms
+
+    relays_sensor:
+      name: "RPC-56P relays sensor"
+      id: relays
