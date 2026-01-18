@@ -1,6 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import uart, sensor
+from esphome import pins
 from esphome.const import (
     CONF_ID,
     CONF_CURRENT,
@@ -36,6 +37,8 @@ RPC56pSensor = rpc56p_sensor_ns.class_(
     "RPC56pSensor", cg.PollingComponent, uart.UARTDevice
 )
 
+CONF_DIR_PIN = "dir_pin"
+
 # CONFIG_SCHEMA = (
 #     sensor.sensor_schema(
 #         RPC56pSensor,
@@ -62,6 +65,7 @@ CONFIG_SCHEMA = (
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(RPC56pSensor),
+            cv.Optional(CONF_DIR_PIN): pins.gpio_output_pin_schema,
             cv.Optional(CONF_IN_TEMP): sensor.sensor_schema(
                 unit_of_measurement=UNIT_CELSIUS,
                 icon=ICON_EMPTY,
@@ -107,7 +111,7 @@ CONFIG_SCHEMA = (
                 accuracy_decimals=0,
                 state_class=STATE_CLASS_MEASUREMENT,
             )
-        }    
+        }
     )
     .extend(cv.polling_component_schema("60s"))
     .extend(uart.UART_DEVICE_SCHEMA)
@@ -115,9 +119,12 @@ CONFIG_SCHEMA = (
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-#    var = await sensor.new_sensor(config)
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
+
+    if CONF_DIR_PIN in config:
+        pin = await cg.gpio_pin_expression(config[CONF_DIR_PIN])
+        cg.add(var.set_dir_pin(pin))
 
     if CONF_IN_TEMP in config:
         sens = await sensor.new_sensor(config[CONF_IN_TEMP])

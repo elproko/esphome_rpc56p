@@ -1,5 +1,7 @@
 #include "esphome/core/log.h"
 #include "rpc56p_sensor.h"
+#include <cstring>
+#include <cstdlib>
 
 namespace esphome {
 namespace rpc56p_sensor {
@@ -34,38 +36,32 @@ int readline(int readch, char *buffer, int len)  {
     return -1;
 }
 
-unsigned long Str2Hex(String we){
-  unsigned long ret=0;
-  int slen=we.length();
-  int pot=1;
+unsigned long str2hex(const char* str){
+  unsigned long ret = 0;
+  int slen = strlen(str);
+  int pot = 1;
   int a;
-  int w=0;
-  int x=slen;
-  for (x=slen;x--;x==0){
-      a=(int)we[x];
-      if (a>=48 && a<58) w=a-48;
-      if (a>=65 && a<71) w=a-55;
-      if (a>=97 && a<103) w=a-87;
-      ret=ret+w*pot;
-      pot=pot<<4;
+  int w = 0;
+
+  for (int x = slen - 1; x >= 0; x--){
+      a = (int)str[x];
+      if (a >= 48 && a < 58) w = a - 48;
+      if (a >= 65 && a < 71) w = a - 55;
+      if (a >= 97 && a < 103) w = a - 87;
+      ret = ret + w * pot;
+      pot = pot << 4;
   }
-  return(ret);
+  return ret;
 }
 
 
 void RPC56pSensor::setup() // override
 {
-//   Sensor *in_temp_sensor = new Sensor();
-//   Sensor *out_temp_sensor = new Sensor();
-//   Sensor *top_temp_sensor = new Sensor();
-//   Sensor *bottom_temp_sensor = new Sensor();
-//   Sensor *water_temp_sensor = new Sensor();
-
-//   Sensor *alarms_sensor = new Sensor();
-//   Sensor *relays_sensor = new Sensor();
-
-  pinMode(DIR_PIN, OUTPUT);
-  digitalWrite(DIR_PIN, LOW);// read direction for 74sn176
+  // Setup direction pin for RS485 transceiver
+  if (this->dir_pin_ != nullptr) {
+    this->dir_pin_->setup();
+    this->dir_pin_->digital_write(false); // read direction for 74sn176
+  }
 }
 
 void RPC56pSensor::update() {
@@ -81,62 +77,66 @@ void RPC56pSensor::update() {
 }
 
 void RPC56pSensor::loop() {
-
-
-static char buffer[max_line_length];
-
+  static char buffer[max_line_length];
   int reads_done = 0;
-  
-    while (available() && reads_done<20) {
-      int n = readline(read(), buffer, max_line_length);
-      if ( n > 5) {
-        String inputString = String(buffer);
-        int C = inputString.substring(3,5).toInt();  // uwaga na parametry: od - do
-        int wart = inputString.substring(5).toInt(); 
-        switch (C) {          
-            case 1:    // relays:    0b=spr+cwu+dz, 0a=cwu+dz, 08=cwu
-                relays = Str2Hex(inputString.substring(5));
-                reads_done++;
-                break;
-            case 10:  // cmdgettemppok  ":0110"    - czujnik pokojowy                
-                in_temp = (float)wart/10; //(double)wart/10;
-                reads_done++;
-                break;
-            case 11:  // cmdgettemppog  ":0111"    - pogodowka
-                out_temp = (float)wart/10; //(double)wart/10;
-                reads_done++;
-                break;
-            case 12: //cmdgettempdz   ":0112"    - Dolne żródło
-                bottom_temp = (float)wart/10;//(double)wart/10;
-                reads_done++;
-                break;
-            case 13: //cmdgettempcwu  ":0113"    - CWU
-                water_temp = (float)wart/10; //(double)wart/10;
-                reads_done++;
-                break;
-            case 14:  //  cmdgettempco   ":0114"    - CO
-                top_temp = (float)wart/10;//(double)wart/10;
-                reads_done++;
-                break;
-            case 22: //cmdreadinput   ":0122"    - wejścia zezwoleń i alarmów
-                alarms = 7-Str2Hex(inputString.substring(5));
-                reads_done++;
-                read_ok = 1;
-                break;               
-        }
+
+  while (available() && reads_done < 20) {
+    int n = readline(read(), buffer, max_line_length);
+    if (n > 5) {
+      // Parse command code from positions 3-5
+      char cmd_str[3];
+      cmd_str[0] = buffer[3];
+      cmd_str[1] = buffer[4];
+      cmd_str[2] = '\0';
+      int C = atoi(cmd_str);
+
+      // Parse value from position 5 onwards
+      int wart = atoi(&buffer[5]);
+
+      switch (C) {
+        case 1: // relays: 0b=spr+cwu+dz, 0a=cwu+dz, 08=cwu
+          relays = str2hex(&buffer[5]);
+          reads_done++;
+          break;
+        case 10: // cmdgettemppok ":0110" - czujnik pokojowy
+          in_temp = (float)wart / 10;
+          reads_done++;
+          break;
+        case 11: // cmdgettemppog ":0111" - pogodowka
+          out_temp = (float)wart / 10;
+          reads_done++;
+          break;
+        case 12: // cmdgettempdz ":0112" - Dolne żródło
+          bottom_temp = (float)wart / 10;
+          reads_done++;
+          break;
+        case 13: // cmdgettempcwu ":0113" - CWU
+          water_temp = (float)wart / 10;
+          reads_done++;
+          break;
+        case 14: // cmdgettempco ":0114" - CO
+          top_temp = (float)wart / 10;
+          reads_done++;
+          break;
+        case 22: // cmdreadinput ":0122" - wejścia zezwoleń i alarmów
+          alarms = 7 - str2hex(&buffer[5]);
+          reads_done++;
+          read_ok = 1;
+          break;
+      }
     }
     reads_done++;
   }
-  if (relays!=old_relays){
+
+  if (relays != old_relays) {
     relays_sensor->publish_state(relays);
   }
-  if (alarms!=old_alarms){
+  if (alarms != old_alarms) {
     alarms_sensor->publish_state(alarms);
   }
 
-old_alarms = alarms;
-old_relays = relays;
-
+  old_alarms = alarms;
+  old_relays = relays;
 }
 
 void RPC56pSensor::dump_config(){

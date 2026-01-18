@@ -2,16 +2,13 @@
 
 //#include "esphome.h"
 #include "esphome/core/component.h"
+#include "esphome/core/hal.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/uart/uart.h"
 
 namespace esphome {
 namespace rpc56p_sensor {
 
-// esp12
-#define LED_PWR 16
-// direction pin for RS485 transceover
-#define DIR_PIN 4
 #define max_line_length 80
 
 class RPC56pSensor : public sensor::Sensor, public PollingComponent, public uart::UARTDevice {
@@ -28,6 +25,8 @@ int old_relays = 1;
 int old_alarms = 1;
 int read_ok = 0;
 
+GPIOPin *dir_pin_{nullptr};
+
 
  public:
 
@@ -36,7 +35,7 @@ int read_ok = 0;
   Sensor *top_temp_sensor;
   Sensor *bottom_temp_sensor;
   Sensor *water_temp_sensor;
-  
+
   Sensor *alarms_sensor;
   Sensor *relays_sensor;
 
@@ -52,7 +51,9 @@ int read_ok = 0;
   void set_water_temp_sensor(sensor::Sensor *sensor) { this->water_temp_sensor = sensor; }
   void set_alarms_sensor(sensor::Sensor *sensor) { this->alarms_sensor = sensor; }
   void set_relays_sensor(sensor::Sensor *sensor) { this->relays_sensor = sensor; }
-  
+
+  void set_dir_pin(GPIOPin *pin) { this->dir_pin_ = pin; }
+
 };
 
 }  // namespace rpc56p_sensor
